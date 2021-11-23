@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>8929f198-8a86-4617-b17f-a9f45e39da1e</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>PencilRendeing.py</StartupFile>
+    <StartupFile>PencilRendering.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
