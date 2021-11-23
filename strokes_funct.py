@@ -1,8 +1,8 @@
 import math
 import numpy as np
 from matplotlib import pyplot as plt
-from skimage import filters
-from skimage import feature
+from skimage import filters, feature
+
 
 def strokes_funct(gray, method=0):
     height = gray.shape[0]
@@ -45,13 +45,13 @@ def strokes_funct(gray, method=0):
         a.axis('off')
 
     fig.tight_layout()
-    plt.show()
+    #plt.show()
 
     if method==0:
         out=G
     elif method==1:
         out=cannyE
     else:
-        out=sobel
+        out=sobelE
 
     return(out)
