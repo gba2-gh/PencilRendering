@@ -90,6 +90,11 @@ for i in range(256):
 
 p=p/Z
 gray=gray/255
+
+
+
+
+
 P = np.cumsum(p)
 # calculate the original histogram:
 h = exposure.histogram(gray, nbins=256)
