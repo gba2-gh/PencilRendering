@@ -1,11 +1,41 @@
 import cv2
 import math
 import numpy as np
-from strokes_funct import strokes_funct
+from strokes_funct import edge_funct, strokes_funct
 from matplotlib import pyplot as plt
 from skimage import filters, transform
 from scipy import signal
 
+from skimage import data, img_as_float
+from skimage import exposure
+import cv2
+cv2.saliency
+
+def plot_img_and_hist(image, axes, bins=256):
+    """Plot an image along with its histogram and cumulative histogram.
+
+    """
+    image = img_as_float(image)
+    ax_img, ax_hist = axes
+    ax_cdf = ax_hist.twinx()
+
+    # Display image
+    ax_img.imshow(image, cmap=plt.cm.gray)
+    ax_img.set_axis_off()
+
+    # Display histogram
+    ax_hist.hist(image.ravel(), bins=bins, histtype='step', color='black')
+    ax_hist.ticklabel_format(axis='y', style='scientific', scilimits=(0, 0))
+    ax_hist.set_xlabel('Pixel intensity')
+    ax_hist.set_xlim(0, 1)
+    ax_hist.set_yticks([])
+
+    # Display cumulative distribution
+    img_cdf, bins = exposure.cumulative_distribution(image, bins)
+    ax_cdf.plot(bins, img_cdf, 'r')
+    ax_cdf.set_yticks([])
+
+    return ax_img, ax_hist, ax_cdf
 
 
 ##input
@@ -25,58 +55,69 @@ gray=filters.gaussian(gray,0.2, truncate=2)
 
 ##STROKE 
 ####0=gradiente, 1=canny, 2=sobel
-edges=strokes_funct(gray,method=2)
+edges=edge_funct(gray,method=2)
 
-#Line segments
-kernel_size= 7#int(height*(1/30))
-kernel=np.zeros((kernel_size,kernel_size))
+strokes=strokes_funct(edges)
 
-####Primera direccion
-kernel[math.floor(kernel_size/2),:] = 1
-
-## Convolucion en 8 direcciones
-G=np.zeros((height, width, 8))
-L=np.zeros((kernel_size,kernel_size,8))
-for i in range(8):
-    L[:,:,i]=transform.rotate(kernel,i*45)
-    G[:,:,i] = signal.convolve2d(edges, L[:,:,i], mode='same')
-
- # Indices de elementos maximos
-max_idx = np.argmax(G, axis=2)
-##Formar clasificacion (C) con los elementos maximos de G
-C=np.zeros((height, width, 8))
-for i in range(8):
-    #idx = max_idx==i #and
-    C[:,:,i] = edges*(max_idx==i)
-
-
-fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(8, 3))
-
-ax[0].imshow(C[:,:,0], cmap='gray')
-ax[0].set_title('0', fontsize=20)
-ax[1].imshow(C[:,:,1], cmap='gray')
-ax[1].set_title('1', fontsize=20)
-ax[2].imshow(C[:,:,2], cmap='gray')
-ax[2].set_title('2', fontsize=20)
+plt.imshow(strokes, cmap='gray')
 plt.show()
 
-##Line shaping
-out= np.zeros((height, width))
-for i in range(8):
-    out =out + signal.convolve2d(C[:,:,i], L[:,:,i], mode='same')
+##TONE MAP
+#####Parametros aprendidos paper
+w1, w2, w3=11, 37, 52
+desv_b=9
+u_a=105
+u_b=225
+media_d=90
+desv_d=11
+lap_peak=255
+p = np.zeros(256)
+Z=0
+for i in range(256):
+    if i <= lap_peak:
+        p1 = w1 * (1 / desv_b) * np.exp(-(255 - i) / desv_b)
+    else:
+        p1=0
 
-out=1-out
+    if (u_a <= i <= u_b):
+        p2 = w2* 1 / (u_b - u_a)
+    else:
+        p2 = 0
 
-plt.imshow(out, cmap='gray')
+    p3 = w3* (1/np.sqrt(2*math.pi*desv_d))*(np.exp(-(i-media_d)**2/(2*desv_d**2)))
+    p[i] = (p1 + p2 + p3)*0.01
+    Z=Z+p[i]
+
+p=p/Z
+gray=gray/255
+P = np.cumsum(p)
+# calculate the original histogram:
+h = exposure.histogram(gray, nbins=256)
+# CDF of original:
+H = np.cumsum(h / np.sum(h))
+# histogram matching:
+lut = np.zeros_like(p)
+for v in range(256):
+    # find the closest value:
+    dist = np.abs(P - H[v])
+    argmin_dist = np.argmin(dist)
+    lut[v] = argmin_dist
+lut_normalized = lut / 256
+J = lut_normalized[(255 * gray).astype(np.int)]
+# smooth:
+J_b = filters.gaussian(J, sigma=np.sqrt(2))
+
+
+plt.imshow(J, cmap='gray')
+plt.show()
+plt.imshow(J_b, cmap='gray')
 plt.show()
 
-
-
-plt.imshow(edges, cmap='gray')
+saliency = cv2.saliency.StaticSaliencySpectralResidual_create()
+(success, saliencyMap) = saliency.computeSaliency(image)
+saliencyMap = (saliencyMap * 255).astype("uint8")
+plt.imshow(saliencyMap)
 plt.show()
-
-
-
 cv2.waitKey(0)
 
 
