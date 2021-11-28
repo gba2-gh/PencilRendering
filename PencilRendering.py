@@ -2,45 +2,23 @@ import cv2
 import math
 import numpy as np
 from strokes_funct import edge_funct, strokes_funct
+from gen_pencil_texture import gen_pencil_texture
+from hist_match import hist_match
+from cal_tone_map import cal_tone_map
 from matplotlib import pyplot as plt
-from skimage import filters, transform
-from scipy import signal
+from skimage import filters, transform, io, color, data, exposure
+from scipy import signal, sparse
 
-from skimage import data, img_as_float
-from skimage import exposure
-import cv2
 cv2.saliency
 
-def plot_img_and_hist(image, axes, bins=256):
-    """Plot an image along with its histogram and cumulative histogram.
 
-    """
-    image = img_as_float(image)
-    ax_img, ax_hist = axes
-    ax_cdf = ax_hist.twinx()
-
-    # Display image
-    ax_img.imshow(image, cmap=plt.cm.gray)
-    ax_img.set_axis_off()
-
-    # Display histogram
-    ax_hist.hist(image.ravel(), bins=bins, histtype='step', color='black')
-    ax_hist.ticklabel_format(axis='y', style='scientific', scilimits=(0, 0))
-    ax_hist.set_xlabel('Pixel intensity')
-    ax_hist.set_xlim(0, 1)
-    ax_hist.set_yticks([])
-
-    # Display cumulative distribution
-    img_cdf, bins = exposure.cumulative_distribution(image, bins)
-    ax_cdf.plot(bins, img_cdf, 'r')
-    ax_cdf.set_yticks([])
-
-    return ax_img, ax_hist, ax_cdf
-
+image = io.imread('inputs/2--59.jpg')
+#ex_img_yuv = color.rgb2yuv(ex_img)
+#ex_img_y_ch = ex_img_yuv[:,:,0]
 
 ##input
-image = cv2.imread('inputs/2--59.jpg')
-scale_percent = 50 # percent of original size
+#image = cv2.imread('inputs/2--59.jpg')
+scale_percent = 100 # percent of original size
 height = int(image.shape[0] * scale_percent / 100)
 width = int(image.shape[1] * scale_percent / 100)
 
@@ -59,70 +37,121 @@ edges=edge_funct(gray,method=2)
 
 strokes=strokes_funct(edges)
 
-plt.imshow(strokes, cmap='gray')
-plt.show()
+#plt.imshow(strokes, cmap='gray')
+#plt.show()
 
-##TONE MAP
-#####Parametros aprendidos paper
-w1, w2, w3=11, 37, 52
-desv_b=9
-u_a=105
-u_b=225
-media_d=90
-desv_d=11
-lap_peak=255
-p = np.zeros(256)
-Z=0
-for i in range(256):
-    if i <= lap_peak:
-        p1 = w1 * (1 / desv_b) * np.exp(-(255 - i) / desv_b)
-    else:
-        p1=0
+gray=gray*(1/255.0)
 
-    if (u_a <= i <= u_b):
-        p2 = w2* 1 / (u_b - u_a)
-    else:
-        p2 = 0
+p=cal_tone_map()
+J=hist_match(gray,p)
 
-    p3 = w3* (1/np.sqrt(2*math.pi*desv_d))*(np.exp(-(i-media_d)**2/(2*desv_d**2)))
-    p[i] = (p1 + p2 + p3)*0.01
-    Z=Z+p[i]
-
-p=p/Z
-gray=gray/255
-
-
-
-
-
-P = np.cumsum(p)
-# calculate the original histogram:
-h = exposure.histogram(gray, nbins=256)
-# CDF of original:
-H = np.cumsum(h / np.sum(h))
-# histogram matching:
-lut = np.zeros_like(p)
-for v in range(256):
-    # find the closest value:
-    dist = np.abs(P - H[v])
-    argmin_dist = np.argmin(dist)
-    lut[v] = argmin_dist
-lut_normalized = lut / 256
-J = lut_normalized[(255 * gray).astype(np.int)]
-# smooth:
-J_b = filters.gaussian(J, sigma=np.sqrt(2))
-
+H= cv2.imread('pencils/pencil0.jpg')
+H=cv2.cvtColor(H, cv2.COLOR_BGR2GRAY)
 
 plt.imshow(J, cmap='gray')
 plt.show()
-plt.imshow(J_b, cmap='gray')
+#plt.imshow(J_b, cmap='gray')
+#plt.show()
+
+#########################################################################################################
+
+H= cv2.imread('pencils/pencil0.jpg')
+H=cv2.cvtColor(H, cv2.COLOR_BGR2GRAY)*(1/255.0)
+#T=gen_pencil_texture(gray,H,J)
+
+#Lambda
+l = 0.2
+# Adjust the input to correspond
+H_res = cv2.resize(H, dim)
+#H_res_reshaped = np.reshape(H_res, (height * width, 1))
+
+H_f=H_res.flatten()
+logH = np.log(H_f)
+
+#test = np.power(H_res, 0.2)
+#plt.imshow(test, cmap='gray')
+#plt.show()
+
+#print('H_f=\n ', H_f)    
+#print('logH=\n ', logH)    
+#J_res_reshaped = np.reshape(J, (height * width, 1))
+J_f= J.flatten()
+logJ = np.log(J_f)
+    
+# In order to use Conjugate Gradient method we need to prepare some sparse matrices:
+#print('ravel=\n ', logH.ravel())
+logH_sparse = sparse.spdiags(logH, 0, height*width, height*width) # 0 - from main diagonal
+#print('logHarr=\n',logH_sparse.toarray())
+
+e = np.ones((height * width, 1))
+print('e=\n',e)
+
+ee = np.concatenate((-e,e), axis=1)
+print('ee=\n',ee)
+
+diags_x = [0, height*width]
+print('diags_x=\n',diags_x )
+diags_y = [0, 1]
+print('diags_y=\n',diags_y )
+
+
+ddx = sparse.spdiags(e.T, 0, height*width, height*width)
+#print('ddxarr=\n',ddx.toarray() )
+
+dddx=sparse.identity(height*width)
+#print('dddxarr=\n',dddx.toarray() )
+
+dx = sparse.spdiags(ee.T, diags_x, height*width, height*width)
+#print('dx=\n',dx )
+#print('dx_arr=\n',dx.toarray())
+dy = sparse.spdiags(ee.T, diags_y, height*width, height*width)
+#print('dy=\n',dy )
+#print('dy_arr=\n',dy.toarray())
+    
+# Compute matrix X and b: (to solve Ax = b)
+#d1=dx @ dx.T
+#d2=dy @ dy.T
+#d3=logH_sparse.T @ logH_sparse
+
+#print('d1=\n',d1 )
+#print('d1arr=\n',d1.toarray() )
+#print('d2=\n',d2 )
+#print('d2array=\n',d2.toarray() )
+#print('d3=\n',d3 )
+#print('d3array=\n',d1.toarray() + d2.toarray() )
+
+A =  l*((dx @ dx.T) + (dy @ dy.T)) + logH_sparse.T @ logH_sparse
+print('A=\n', A)
+#print('Aarr =\n', A.toarray())
+b = logH_sparse.T @ logJ
+print('b=\n',b )
+    
+# Conjugate Gradient
+beta = sparse.linalg.cg(A, b, tol=1e-6, maxiter=60)
+    
+# Adjust the result
+beta_reshaped = np.reshape(beta[0], (height, width))
+    
+# The final pencil texture map T
+T = np.power(H_res, beta_reshaped)
+ 
+
+
+
+plt.imshow(T, cmap='gray')
 plt.show()
+
+
 
 saliency = cv2.saliency.StaticSaliencySpectralResidual_create()
 (success, saliencyMap) = saliency.computeSaliency(image)
 saliencyMap = (saliencyMap * 255).astype("uint8")
-plt.imshow(saliencyMap)
+saliencyMap2=np.sqrt(saliencyMap)
+saliencyMap2=filters.gaussian(saliencyMap2,0.2, truncate=2)
+plt.imshow(saliencyMap, cmap='gray')
 plt.show()
-cv2.waitKey(0)
+plt.imshow(saliencyMap2, cmap='gray')
+plt.show()
+
 
 
