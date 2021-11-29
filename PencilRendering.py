@@ -12,7 +12,7 @@ from scipy import signal, sparse
 cv2.saliency
 
 
-image = io.imread('inputs/2--59.jpg')
+image = io.imread('inputs/7--129.jpg')
 #ex_img_yuv = color.rgb2yuv(ex_img)
 #ex_img_y_ch = ex_img_yuv[:,:,0]
 
@@ -29,11 +29,13 @@ image= cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 gray=cv2.cvtColor(image,cv2.COLOR_RGB2GRAY) ##grises
 
 gray=gray.astype(float)
-gray=filters.gaussian(gray,0.2, truncate=2)
+gray=gray/255.0
+
+#gray=filters.gaussian(gray,0.2, truncate=2)
 
 ##STROKE 
 ####0=gradiente, 1=canny, 2=sobel
-edges=edge_funct(gray,method=2)
+edges=edge_funct(gray,method=0)
 
 strokes=strokes_funct(edges)
 

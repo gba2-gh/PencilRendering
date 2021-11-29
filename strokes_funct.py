@@ -16,11 +16,12 @@ def edge_funct(gray, method=0, display=False):
     #    for j in range(width):
     #        G[i][j]=gray[i][j]
 
+
     dx = np.absolute(gray[: , 0:width - 1] - gray[: , 1:width])  ##Toda la columna, de 0 a width -1 
-    dy=  np.absolute(gray[1:height-1,:] - gray[2:height,:])
+    dy=  np.absolute(gray[0:height-1,:] - gray[1:height,:])
 
     gx[:,0:width-1] = dx
-    gy[1:height-1,:] =dy
+    gy[0:height-1,:] =dy
 
     G= gx+gy
 
@@ -72,16 +73,19 @@ def strokes_funct(edges, lineSize=7, display=False):
     G=np.zeros((height, width, 8))
     L=np.zeros((kernel_size,kernel_size,8))
     for i in range(8):
-        L[:,:,i]=transform.rotate(kernel,i*45)
-        G[:,:,i] = signal.convolve2d(edges, L[:,:,i], mode='same')
-
-     # Indices de elementos maximos
+        ker=transform.rotate(kernel,i*22.5)
+        L[:,:,i]=ker
+        aux=signal.convolve2d(edges, ker, mode='same')
+        G[:,:,i] = aux
+    print(G[:,:,1])
+    # Indices de elementos maximos
     max_idx = np.argmax(G, axis=2)
     ##Formar clasificacion (C) con los elementos maximos de G
     C=np.zeros((height, width, 8))
     for i in range(8):
         #idx = max_idx==i #and
-        C[:,:,i] = edges*(max_idx==i)
+        aux = edges*(max_idx==i)
+        C[:,:,i] = aux
 
     #Display c maps
     if display:
@@ -96,10 +100,35 @@ def strokes_funct(edges, lineSize=7, display=False):
         plt.show()
 
     ##Line shaping
+
     out= np.zeros((height, width))
     for i in range(8):
         out =out + signal.convolve2d(C[:,:,i], L[:,:,i], mode='same')
 
-    out=1-out
+    out=1-out/255
 
-    return(out)
+    basic_ker = np.zeros((kernel_size * 2 + 1, kernel_size * 2 + 1))
+    basic_ker[kernel_size + 1,:] = 1 # ------- (horizontal line)
+
+    stroke_width=1
+    for w in range(1, stroke_width):
+        if (math.floor(kernel_size/2) - w) >= 0:
+            basic_ker[math.floor(kernel_size/2) - w, :] = 1
+        if (math.floor(kernel_size/2) + w) < (kernel_size):
+            basic_ker[kernel_size + 1 + w, :] = 1
+    # It's time to compute S':
+    S_tag_sep = np.zeros_like(C)
+    for d in range(8):
+        ker = transform.rotate(basic_ker, (d * 180) / 8)
+        S_tag_sep[:,:,d] = signal.convolve2d(C[:,:,d], ker, mode='same')
+    S_tag = np.sum(S_tag_sep, axis=2)
+    # Remember that S shpuld be an image, thus we need to make sure the values are in [0,1]
+    S_tag_normalized = (S_tag - np.min(S_tag.ravel())) / (np.max(S_tag.ravel()) - np.min(S_tag.ravel()))
+    # The last step is to invert it (b->w, w->b)
+    S = 1 - S_tag_normalized
+
+
+
+
+
+    return(S)
