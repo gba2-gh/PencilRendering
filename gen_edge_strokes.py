@@ -88,14 +88,20 @@ def gen_strokes(edges, lineSize=7, numDir=8, lineWidth=1, display=False):
 
     #Display c maps
     if display:
-        fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(8, 3))
+        fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(8, 3))
 
         ax[0].imshow(C[:,:,0], cmap='gray')
         ax[0].set_title('0', fontsize=20)
+        ax[0].axis('off')
         ax[1].imshow(C[:,:,1], cmap='gray')
         ax[1].set_title('1', fontsize=20)
+        ax[1].axis('off')
         ax[2].imshow(C[:,:,2], cmap='gray')
-        ax[2].set_title('2', fontsize=20)
+        ax[2].set_title('3', fontsize=20)
+        ax[2].axis('off')
+        ax[3].imshow(C[:,:,3], cmap='gray')
+        ax[3].set_title('3', fontsize=20)
+        ax[3].axis('off')
         plt.show()
 
 
@@ -126,6 +132,6 @@ def gen_strokes(edges, lineSize=7, numDir=8, lineWidth=1, display=False):
     # normalizar en [0,1]
     S = (Sp - np.min(Sp.ravel())) / (np.max(Sp.ravel()) - np.min(Sp.ravel()))
     # invertir
-    S = 1 - S
+    #S = 1 - S
 
     return(S)

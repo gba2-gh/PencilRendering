@@ -14,7 +14,7 @@ from scipy import signal, sparse
 cv2.saliency
 
 
-image = io.imread('inputs/3--17.jpg')
+image = io.imread('inputs/uxmal.jpg')
 #ex_img_yuv = color.rgb2yuv(ex_img)
 #ex_img_y_ch = ex_img_yuv[:,:,0]
 
@@ -36,8 +36,8 @@ gray=gray/255.0
 
 ##STROKE 
 ####0=gradiente, 1=canny, 2=sobel
-edges=gen_edge(gray,method=0)
-S=gen_strokes(edges)
+edges=gen_edge(gray,method=2)
+S=gen_strokes(edges, display=True)
 plt.imshow(S, cmap='gray')
 plt.show()
 
